@@ -241,14 +241,14 @@ class Model:
                 self.Y_train, mmap_mode='r')
 
             grid_result = grid.fit(X, y)
-            print('Best Score: ', grid_result.best_score_)
+            print('Best Score for file: ', grid_result.best_score_)
             if(grid_result.best_score_ > best_Score):
                 best_Score = grid_result.best_score_
                 best_params = grid_result.best_params_
                 i = index
 
-        print('Best Score: ', best_Score)
-        print('Best Params: ', best_params)
+        print('Best Score Overall: ', best_Score)
+        print('Best Params Overall: ', best_params)
         self.index = i
         self.param = best_params
         print("Tuning parameters... DONE")
