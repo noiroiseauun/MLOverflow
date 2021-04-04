@@ -2,10 +2,13 @@ from sklearn.linear_model import SGDRegressor
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from progress.bar import Bar
+from sklearn.model_selection import GridSearchCV
 
 """
 Code for SGD Regression from sklearn
 """
+
+
 class Model:
     def __init__(self, model, datapath):
         #  model - 'score' or 'time'
@@ -41,7 +44,8 @@ class Model:
 
         :return trained regression model
         """
-        X, y = np.load(self.X_train, mmap_mode='r'), np.load(self.Y_train, mmap_mode='r')
+        X, y = np.load(self.X_train, mmap_mode='r'), np.load(
+            self.Y_train, mmap_mode='r')
         print(X.shape)
 
         with Bar("Training...", max=self.train_batches) as bar:
@@ -111,7 +115,8 @@ class Model:
         f = open(self.X_test, 'wb')
         np.save(f, X[total_train:, :])
         f = open(self.Y_train, 'wb')
-        np.save(f, np.log(1 + np.array(values[0:total_train])) if self.log_y else np.array(values[0:total_train]))
+        np.save(f, np.log(1 + np.array(values[0:total_train]))
+                if self.log_y else np.array(values[0:total_train]))
         f = open(self.Y_test, 'wb')
         np.save(f, np.array(values[total_train:]))
 
@@ -136,5 +141,21 @@ class Model:
         print('Min Value: {}'.format(y_test.min()))
         print('Min Prediction: {}'.format(y_pred.min()))
 
+    def tune_parameters(self):
+        print(
+            "Tuning with (alpha = 0.001, 0.01, 0.05, 0.10, 0.20, 0.5, 1, 10, 100, 1000): ")
+        param_grid = {"alpha": [0.001, 0.01, 0.05,
+                                0.10, 0.20, 0.5, 1, 10]}
 
+        grid = GridSearchCV(estimator=SGDRegressor(), param_grid=param_grid,
+                            scoring='r2', verbose=1, n_jobs=-1)
 
+        X, y = np.load(self.X_train, mmap_mode='r'), np.load(
+            self.Y_train, mmap_mode='r')
+
+        grid_result = grid.fit(X, y)
+
+        print('Best Score: ', grid_result.best_score_)
+        print('Best Params: ', grid_result.best_params_)
+
+        return grid_result.best_params_

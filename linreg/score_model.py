@@ -4,19 +4,21 @@ from model import Model
 import numpy as np
 from progress.bar import Bar
 import util
-
+import codecs
 """
 For 10 GB num_samples * feat_cnt should be less than 10^10
 batch_size*num_batches = num_training or num_test
 MSE ~ 200
 SGD for predicting score
 """
+
+
 class ScoreModel(Model):
     model = 'score'
 
-    def __init__(self, datapath):
+    def __init__(self, datapath=""):
         super().__init__('score', datapath)
-        self.alpha_reg = 0.05
+        # self.alpha_reg = 0.05
         self.num_samples = 1000000
 
         # train/test_count is per batch
@@ -27,18 +29,24 @@ class ScoreModel(Model):
 
     def data(self, start, count):
         i, lines, scores = 0, [], []
-        f = open(self.datapath + 'Questions-Final.csv', 'r')
-        corpus = csv.reader(f, delimiter=',')
-
+        f = codecs.open(self.datapath + 'Questions-Final.csv', 'r', 'utf-8')
+        corpus = csv.reader(f)
         with Bar("Loading data...", max=count) as bar:
             for line in corpus:
                 if i == start + count + 1:
                     break
                 elif i > start:
-                    tokens = util.clean_tokenize(line[4] + line[5])
-                    tokens = [tok.translate(str.maketrans('', '', string.punctuation)) for tok in tokens]
+                    try:
+                        tokens = util.clean_tokenize(line[4] + line[5])
+                    except:
+                        print("\nerror1")
+                    tokens = [tok.translate(str.maketrans(
+                        '', '', string.punctuation)) for tok in tokens]
                     lines.append(' '.join(tokens))
-                    scores.append(int(line[3]))
+                    try:
+                        scores.append(int(line[3]))
+                    except:
+                        scores.append(0)
                 bar.next()
                 i += 1
 
@@ -49,7 +57,10 @@ class ScoreModel(Model):
             lines, values = self.data(0, self.num_samples)
             self.vectorize_text(lines, values)
 
+        self.alpha_reg = self.tune_parameters()
+
         reg = self.train()
         y_pred = self.test(reg)
         y_test = np.load(self.Y_test, mmap_mode='r')
+        print("No Tuning (alpha = 0.05): ")
         self.print_stats(y_pred, y_test)
