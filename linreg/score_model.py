@@ -57,7 +57,7 @@ class ScoreModel(Model):
             lines, values = self.data(0, self.num_samples)
             self.vectorize_text(lines, values)
 
-        self.alpha_reg = self.tune_parameters()
+        self.tune_parameters()
 
         reg = self.train()
         y_pred = self.test(reg)

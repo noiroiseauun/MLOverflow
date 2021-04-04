@@ -15,8 +15,44 @@ class Model:
         self.model = model
         self.datapath = datapath
 
-        self.X_train = self.datapath + f"X_train_{self.model}.npy"
-        self.X_test = self.datapath + f"X_test_{self.model}.npy"
+        # self.X_stop_binary_train = self.datapath + \
+        #     f"X_stop_binary_train_{self.model}.npy"
+        # self.X_Nostop_binary_train = self.datapath + \
+        #     f"X_Nostop_binary_train_{self.model}.npy"
+        # self.X_stop_Nobinary_train = self.datapath + \
+        #     f"X_stop_Nobinary_train_{self.model}.npy"
+        # self.X_Nostop_Nobinary_train = self.datapath + \
+        #     f"X_Nostop_Nobinary_train_{self.model}.npy"
+
+        # self.X_stop_binary_test = self.datapath + \
+        #     f"X_stop_binary_test_{self.model}.npy"
+        # self.X_Nostop_binary_test = self.datapath + \
+        #     f"X_Nostop_binary_test_{self.model}.npy"
+        # self.X_stop_Nobinary_test = self.datapath + \
+        #     f"X_stop_Nobinary_test_{self.model}.npy"
+        # self.X_Nostop_Nobinary_test = self.datapath + \
+        #     f"X_Nostop_Nobinary_test_{self.model}.npy"
+
+        self.index = -1
+        self.param = {}
+
+        self.X_train = [self.datapath +
+                        f"X_stop_binary_train_{self.model}.npy",
+                        self.datapath +
+                        f"X_Nostop_binary_train_{self.model}.npy",
+                        self.datapath +
+                        f"X_stop_Nobinary_train_{self.model}.npy",
+                        self.datapath +
+                        f"X_Nostop_Nobinary_train_{self.model}.npy"]
+        self.X_test = [self.datapath +
+                       f"X_stop_binary_test_{self.model}.npy",
+                       self.datapath +
+                       f"X_Nostop_binary_test_{self.model}.npy",
+                       self.datapath +
+                       f"X_stop_Nobinary_test_{self.model}.npy",
+                       self.datapath +
+                       f"X_Nostop_Nobinary_test_{self.model}.npy"]
+
         self.Y_train = self.datapath + f"Y_train_{self.model}.npy"
         self.Y_test = self.datapath + f"Y_test_{self.model}.npy"
 
@@ -44,12 +80,13 @@ class Model:
 
         :return trained regression model
         """
-        X, y = np.load(self.X_train, mmap_mode='r'), np.load(
+        X, y = np.load(self.X_train[self.index], mmap_mode='r'), np.load(
             self.Y_train, mmap_mode='r')
         print(X.shape)
 
         with Bar("Training...", max=self.train_batches) as bar:
-            reg = SGDRegressor(alpha=self.alpha_reg)
+            reg = SGDRegressor(alpha=self.param['alpha'], loss=self.param['loss'],
+                               penalty=self.param['penalty'], learning_rate=self.param['learning_rate'])
             for i in range(self.train_batches):
                 self.process_train_batch(X, y, i, reg)
                 bar.next()
@@ -63,7 +100,8 @@ class Model:
         reg - trained regression model
         y_pred - score predictions for X_test
         """
-        X_test, y_pred = np.load(self.X_test, mmap_mode='r'), np.array([])
+        X_test, y_pred = np.load(
+            self.X_test[self.index], mmap_mode='r'), np.array([])
 
         print(X_test.shape)
         with Bar("Testing...", max=self.test_batches) as bar:
@@ -100,20 +138,59 @@ class Model:
         values - array with the Score or time
         """
         print("[step] vectorizing text...")
-        vectorizer = CountVectorizer(
+        vectorizer_stop_binary = CountVectorizer(
             lowercase=True, stop_words='english',
             max_df=1.0, min_df=1, max_features=self.num_features,
             binary=True, dtype=np.int8
         )
-        X = vectorizer.fit_transform(lines).toarray()
+
+        vectorizer_Nostop_binary = CountVectorizer(
+            lowercase=True, stop_words=None,
+            max_df=1.0, min_df=1, max_features=self.num_features,
+            binary=True, dtype=np.int8
+        )
+
+        vectorizer_stop_Nobinary = CountVectorizer(
+            lowercase=True, stop_words='english',
+            max_df=1.0, min_df=1, max_features=self.num_features,
+            binary=False, dtype=np.int8
+        )
+
+        vectorizer_Nostop_Nobinary = CountVectorizer(
+            lowercase=True, stop_words=None,
+            max_df=1.0, min_df=1, max_features=self.num_features,
+            binary=False, dtype=np.int8
+        )
+
+        X_stop_binary = vectorizer_stop_binary.fit_transform(lines).toarray()
+        X_Nostop_binary = vectorizer_Nostop_binary.fit_transform(
+            lines).toarray()
+        X_stop_Nobinary = vectorizer_stop_Nobinary.fit_transform(
+            lines).toarray()
+        X_Nostop_Nobinary = vectorizer_Nostop_Nobinary.fit_transform(
+            lines).toarray()
         print("[step] vectorizing text... DONE")
 
         print("[step] saving vectors...")
         total_train = self.train_count * self.train_batches
-        f = open(self.X_train, 'wb')
-        np.save(f, X[0:total_train, :])
-        f = open(self.X_test, 'wb')
-        np.save(f, X[total_train:, :])
+        f = open(self.X_train[0], 'wb')
+        np.save(f, X_stop_binary[0:total_train, :])
+        f = open(self.X_train[1], 'wb')
+        np.save(f, X_Nostop_binary[0:total_train, :])
+        f = open(self.X_train[2], 'wb')
+        np.save(f, X_stop_Nobinary[0:total_train, :])
+        f = open(self.X_train[3], 'wb')
+        np.save(f, X_Nostop_Nobinary[0:total_train, :])
+
+        f = open(self.X_test[0], 'wb')
+        np.save(f, X_stop_binary[total_train:, :])
+        f = open(self.X_test[1], 'wb')
+        np.save(f, X_Nostop_binary[total_train:, :])
+        f = open(self.X_test[2], 'wb')
+        np.save(f, X_stop_Nobinary[total_train:, :])
+        f = open(self.X_test[3], 'wb')
+        np.save(f, X_Nostop_Nobinary[total_train:, :])
+
         f = open(self.Y_train, 'wb')
         np.save(f, np.log(1 + np.array(values[0:total_train]))
                 if self.log_y else np.array(values[0:total_train]))
@@ -142,20 +219,36 @@ class Model:
         print('Min Prediction: {}'.format(y_pred.min()))
 
     def tune_parameters(self):
-        print(
-            "Tuning with (alpha = 0.001, 0.01, 0.05, 0.10, 0.20, 0.5, 1, 10, 100, 1000): ")
-        param_grid = {"alpha": [0.001, 0.01, 0.05,
-                                0.10, 0.20, 0.5, 1, 10]}
+        i = -1
+        best_Score = 0
+        best_params = {}
+        print("Tuning parameters...")
+        for index, f in enumerate(self.X_train):
+            print(f)
 
-        grid = GridSearchCV(estimator=SGDRegressor(), param_grid=param_grid,
-                            scoring='r2', verbose=1, n_jobs=-1)
+            param_grid = {
+                'alpha': [0.001, 0.01, 0.05,
+                          0.10, 0.20, 0.5, 1, 10],
+                'loss': ['squared_loss', 'huber', 'epsilon_insensitive'],
+                'penalty': ['l2', 'l1', 'elasticnet'],
+                'learning_rate': ['constant', 'optimal', 'invscaling'],
+            }
 
-        X, y = np.load(self.X_train, mmap_mode='r'), np.load(
-            self.Y_train, mmap_mode='r')
+            grid = GridSearchCV(estimator=SGDRegressor(), param_grid=param_grid,
+                                scoring='r2', verbose=1, n_jobs=-1)
 
-        grid_result = grid.fit(X, y)
+            X, y = np.load(f, mmap_mode='r'), np.load(
+                self.Y_train, mmap_mode='r')
 
-        print('Best Score: ', grid_result.best_score_)
-        print('Best Params: ', grid_result.best_params_)
+            grid_result = grid.fit(X, y)
+            print('Best Score: ', grid_result.best_score_)
+            if(grid_result.best_score_ > best_Score):
+                best_Score = grid_result.best_score_
+                best_params = grid_result.best_params_
+                i = index
 
-        return grid_result.best_params_
+        print('Best Score: ', best_Score)
+        print('Best Params: ', best_params)
+        self.index = i
+        self.param = best_params
+        print("Tuning parameters... DONE")
