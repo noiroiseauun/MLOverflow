@@ -2,7 +2,7 @@ from sklearn.linear_model import SGDRegressor
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from progress.bar import Bar
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 """
 Code for SGD Regression from sklearn
@@ -85,8 +85,8 @@ class Model:
         print(X.shape)
 
         with Bar("Training...", max=self.train_batches) as bar:
-            reg = SGDRegressor(alpha=self.param['alpha'], loss=self.param['loss'],
-                               penalty=self.param['penalty'], learning_rate=self.param['learning_rate'])
+            reg = SGDRegressor(alpha=self.param['alpha'],
+                               penalty=self.param['penalty'], loss=self.param['loss'], learning_rate=self.param['learning_rate'])
             for i in range(self.train_batches):
                 self.process_train_batch(X, y, i, reg)
                 bar.next()
@@ -138,58 +138,36 @@ class Model:
         values - array with the Score or time
         """
         print("[step] vectorizing text...")
-        vectorizer_stop_binary = CountVectorizer(
+
+        vectorizers = [CountVectorizer(
             lowercase=True, stop_words='english',
             max_df=1.0, min_df=1, max_features=self.num_features,
             binary=True, dtype=np.int8
-        )
-
-        vectorizer_Nostop_binary = CountVectorizer(
+        ), CountVectorizer(
             lowercase=True, stop_words=None,
             max_df=1.0, min_df=1, max_features=self.num_features,
             binary=True, dtype=np.int8
-        )
-
-        vectorizer_stop_Nobinary = CountVectorizer(
+        ), CountVectorizer(
             lowercase=True, stop_words='english',
             max_df=1.0, min_df=1, max_features=self.num_features,
             binary=False, dtype=np.int8
-        )
-
-        vectorizer_Nostop_Nobinary = CountVectorizer(
+        ), CountVectorizer(
             lowercase=True, stop_words=None,
             max_df=1.0, min_df=1, max_features=self.num_features,
             binary=False, dtype=np.int8
-        )
+        )]
 
-        X_stop_binary = vectorizer_stop_binary.fit_transform(lines).toarray()
-        X_Nostop_binary = vectorizer_Nostop_binary.fit_transform(
-            lines).toarray()
-        X_stop_Nobinary = vectorizer_stop_Nobinary.fit_transform(
-            lines).toarray()
-        X_Nostop_Nobinary = vectorizer_Nostop_Nobinary.fit_transform(
-            lines).toarray()
-        print("[step] vectorizing text... DONE")
-
-        print("[step] saving vectors...")
         total_train = self.train_count * self.train_batches
-        f = open(self.X_train[0], 'wb')
-        np.save(f, X_stop_binary[0:total_train, :])
-        f = open(self.X_train[1], 'wb')
-        np.save(f, X_Nostop_binary[0:total_train, :])
-        f = open(self.X_train[2], 'wb')
-        np.save(f, X_stop_Nobinary[0:total_train, :])
-        f = open(self.X_train[3], 'wb')
-        np.save(f, X_Nostop_Nobinary[0:total_train, :])
-
-        f = open(self.X_test[0], 'wb')
-        np.save(f, X_stop_binary[total_train:, :])
-        f = open(self.X_test[1], 'wb')
-        np.save(f, X_Nostop_binary[total_train:, :])
-        f = open(self.X_test[2], 'wb')
-        np.save(f, X_stop_Nobinary[total_train:, :])
-        f = open(self.X_test[3], 'wb')
-        np.save(f, X_Nostop_Nobinary[total_train:, :])
+        for index, vectorizer in enumerate(vectorizers):
+            X = vectorizer.fit_transform(
+                lines).toarray()
+            print("[step] vectorizing text " + str(index) + "... DONE")
+            print("[step] saving vectors " + str(index) + "...")
+            f = open(self.X_train[index], 'wb')
+            np.save(f, X[0:total_train, :])
+            f = open(self.X_test[index], 'wb')
+            np.save(f, X[total_train:, :])
+            X = None
 
         f = open(self.Y_train, 'wb')
         np.save(f, np.log(1 + np.array(values[0:total_train]))
@@ -197,6 +175,7 @@ class Model:
         f = open(self.Y_test, 'wb')
         np.save(f, np.array(values[total_train:]))
 
+        f = None
         print("[step] saving vectors... DONE")
 
     def print_stats(self, y_pred, y_test):
@@ -224,28 +203,32 @@ class Model:
         best_params = {}
         print("Tuning parameters...")
         for index, f in enumerate(self.X_train):
-            print(f)
+            print("File: ", f)
 
-            param_grid = {
-                'alpha': [0.001, 0.01, 0.05,
-                          0.10, 0.20, 0.5, 1, 10],
-                'loss': ['squared_loss', 'huber', 'epsilon_insensitive'],
-                'penalty': ['l2', 'l1', 'elasticnet'],
-                'learning_rate': ['constant', 'optimal', 'invscaling'],
-            }
+            # The combination of l1 and optimal ended up taking around 30 min each and did not converge therefore ignored that case.
+            # The combination of l2 and optimal did not converge as well but only took 7 min. Since it did not converge we left it out as well
+            param_grid = [{"alpha": [0.10, 0.20, 0.5], "penalty": ["l1"], "learning_rate": ["constant", "invscaling"]},
+                          {"alpha": [0.10, 0.20, 0.5], "penalty": ["l2"], "learning_rate": ["optimal", "constant", "invscaling"]}]
 
-            grid = GridSearchCV(estimator=SGDRegressor(), param_grid=param_grid,
-                                scoring='r2', verbose=1, n_jobs=-1)
+            grid = RandomizedSearchCV(estimator=SGDRegressor(max_iter=300, tol=1e-2), param_distributions=param_grid,
+                                      scoring='r2', n_jobs=2, verbose=2)
+            # grid = GridSearchCV(estimator=SGDRegressor(max_iter=300, tol=1e-2), param_grid=param_grid,
+            #                     scoring='r2', n_jobs=2, verbose=2)
 
             X, y = np.load(f, mmap_mode='r'), np.load(
                 self.Y_train, mmap_mode='r')
-
             grid_result = grid.fit(X, y)
+
             print('Best Score for file: ', grid_result.best_score_)
+            print('Best Param for file: ', grid_result.best_params_)
             if(grid_result.best_score_ > best_Score):
                 best_Score = grid_result.best_score_
                 best_params = grid_result.best_params_
                 i = index
+
+            grid = None
+            X = None
+            y = None
 
         print('Best Score Overall: ', best_Score)
         print('Best Params Overall: ', best_params)

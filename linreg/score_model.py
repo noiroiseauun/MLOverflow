@@ -19,13 +19,13 @@ class ScoreModel(Model):
     def __init__(self, datapath=""):
         super().__init__('score', datapath)
         # self.alpha_reg = 0.05
-        self.num_samples = 1000000
+        self.num_samples = 100000
 
         # train/test_count is per batch
-        self.train_count = 10000
+        self.train_count = 1000
         self.train_batches = 80
         self.test_batches = 20
-        self.test_count = 10000
+        self.test_count = 1000
 
     def data(self, start, count):
         i, lines, scores = 0, [], []
@@ -53,14 +53,13 @@ class ScoreModel(Model):
         return lines, scores
 
     def run(self, load_data=True):
-        if load_data:
-            lines, values = self.data(0, self.num_samples)
-            self.vectorize_text(lines, values)
+        # if load_data:
+        #     lines, values = self.data(0, self.num_samples)
+        #     self.vectorize_text(lines, values)
 
         self.tune_parameters()
 
         reg = self.train()
         y_pred = self.test(reg)
         y_test = np.load(self.Y_test, mmap_mode='r')
-        print("No Tuning (alpha = 0.05): ")
         self.print_stats(y_pred, y_test)
