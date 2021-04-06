@@ -5,14 +5,15 @@ import numpy as np
 from progress.bar import Bar
 import util
 from datetime import datetime
+import codecs
 
 
 class TimeModel(Model):
     model = 'time'
 
-    def __init__(self, datapath):
+    def __init__(self, datapath=""):
         super().__init__('time', datapath)
-        self.alpha_reg = 0.05
+        # self.alpha_reg = 0.05
         # Note: there are less than 1 million questions with answers (that are after the question was created)
         self.num_samples = 900000
         self.train_count = 10000
@@ -39,14 +40,14 @@ class TimeModel(Model):
     def data(self, start, count):
         answers, lines, times, i = {}, [], [], start
 
-        with open(self.datapath + 'Answers-Final.csv', 'r') as f:
+        with codecs.open(self.datapath + 'Answers-Final.csv', 'r', 'utf-8') as f:
             fptr = csv.reader(f, delimiter=',')
             for line in fptr:
                 answers[line[2]] = line[1]
 
         is_first = True
         with Bar("Loading data...", max=count) as bar:
-            with open(self.datapath + 'Questions-Final.csv', 'r') as f:
+            with codecs.open(self.datapath + 'Questions-Final.csv', 'r', 'utf-8') as f:
                 fptr = csv.reader(f, delimiter=',')
                 for line in fptr:
                     if is_first:
@@ -59,8 +60,14 @@ class TimeModel(Model):
                             delta = self.calc_time(answers[line[0]], line[1])
                             # Only considers answers that have a later date than the question
                             if delta >= 0:
-                                tokens = util.clean_tokenize(line[4] + line[5])
-                                tokens = [tok.translate(str.maketrans('', '', string.punctuation)) for tok in tokens]
+                                try:
+                                    tokens = util.clean_tokenize(
+                                        line[4] + line[5])
+                                except:
+                                    print("\nerror1")
+
+                                tokens = [tok.translate(str.maketrans(
+                                    '', '', string.punctuation)) for tok in tokens]
                                 lines.append(' '.join(tokens))
                                 times.append(delta)
                                 i += 1
@@ -68,10 +75,17 @@ class TimeModel(Model):
 
         return lines, times
 
-    def run(self, load_data=True):
+    def run(self, load_data=True, tune_parameter=True):
         if load_data:
             lines, values = self.data(0, self.num_samples)
             self.vectorize_text(lines, values)
+
+        if tune_parameter:
+            self.tune_parameters()
+        else:
+            self.index = 1
+            self.param = {"alpha": 0.05,
+                          "learning_rate": "optimal", "penalty": "l2"}
 
         reg = self.train()
         y_pred = self.test(reg)

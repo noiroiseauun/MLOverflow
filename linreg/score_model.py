@@ -5,6 +5,7 @@ import numpy as np
 from progress.bar import Bar
 import util
 import codecs
+
 """
 For 10 GB num_samples * feat_cnt should be less than 10^10
 batch_size*num_batches = num_training or num_test
@@ -19,13 +20,13 @@ class ScoreModel(Model):
     def __init__(self, datapath=""):
         super().__init__('score', datapath)
         # self.alpha_reg = 0.05
-        self.num_samples = 100000
+        self.num_samples = 1000000
 
         # train/test_count is per batch
-        self.train_count = 1000
+        self.train_count = 10000
         self.train_batches = 80
         self.test_batches = 20
-        self.test_count = 1000
+        self.test_count = 10000
 
     def data(self, start, count):
         i, lines, scores = 0, [], []
@@ -39,7 +40,7 @@ class ScoreModel(Model):
                     try:
                         tokens = util.clean_tokenize(line[4] + line[5])
                     except:
-                        print("\nerror1")
+                        print("\nerror: skipping")
                     tokens = [tok.translate(str.maketrans(
                         '', '', string.punctuation)) for tok in tokens]
                     lines.append(' '.join(tokens))
@@ -52,14 +53,21 @@ class ScoreModel(Model):
 
         return lines, scores
 
-    def run(self, load_data=True):
-        # if load_data:
-        #     lines, values = self.data(0, self.num_samples)
-        #     self.vectorize_text(lines, values)
+    def run(self, load_data=True, tune_parameter=True):
+        if load_data:
+            lines, values = self.data(0, self.num_samples)
+            self.vectorize_text(lines, values)
 
-        self.tune_parameters()
+        if tune_parameter:
+            self.tune_parameters()
+        else:
+            self.index = 0
+            self.param = {"alpha": 0.1,
+                          "learning_rate": "invscaling", "penalty": "l2"}
 
         reg = self.train()
+        print(reg.densify())
         y_pred = self.test(reg)
         y_test = np.load(self.Y_test, mmap_mode='r')
+        print(y_pred.shape)
         self.print_stats(y_pred, y_test)
