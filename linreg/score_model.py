@@ -19,7 +19,6 @@ class ScoreModel(Model):
 
     def __init__(self, datapath=""):
         super().__init__('score', datapath)
-        # self.alpha_reg = 0.05
         self.num_samples = 1000000
 
         # train/test_count is per batch
@@ -58,6 +57,7 @@ class ScoreModel(Model):
             lines, values = self.data(0, self.num_samples)
             self.vectorize_text(lines, values)
 
+        #If tune_parameter is false, we run with our experimented parameters
         if tune_parameter:
             self.tune_parameters()
         else:

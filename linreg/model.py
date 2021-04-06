@@ -36,8 +36,6 @@ class Model:
                        self.datapath +
                        f"X_Nostop_Nobinary_test_{self.model}.npy"]
 
-        # self.X_train = self.datapath + f"X_train_{self.model}.npy"
-        # self.X_test = self.datapath + f"X_test_{self.model}.npy"
         self.Y_train = self.datapath + f"Y_train_{self.model}.npy"
         self.Y_test = self.datapath + f"Y_test_{self.model}.npy"
 
@@ -75,7 +73,7 @@ class Model:
             for i in range(self.train_batches):
                 self.process_train_batch(X, y, i, reg)
                 bar.next()
-            
+
         return reg
 
     def test(self, reg):
@@ -155,22 +153,6 @@ class Model:
             np.save(f, X[total_train:, :])
             X = None
 
-        #total_train = self.train_count * self.train_batches
-        # vectorizer = CountVectorizer(
-        #     lowercase=True, stop_words='english',
-        #     max_df=1.0, min_df=1, max_features=self.num_features,
-        #     binary=True, dtype=np.int8
-        # )
-        # X = vectorizer.fit_transform(lines).toarray()
-        # print("[step] vectorizing text... DONE")
-        # print("[step] saving vectors...")
-
-        # f = open(self.X_train, 'wb')
-        # np.save(f, X[0:total_train, :])
-        # f = open(self.X_test, 'wb')
-        # np.save(f, X[total_train:, :])
-        # X = None
-
         f = open(self.Y_train, 'wb')
         np.save(f, np.log(1 + np.array(values[0:total_train]))
                 if self.log_y else np.array(values[0:total_train]))
@@ -200,36 +182,34 @@ class Model:
         print('Min Prediction: {}'.format(y_pred.min()))
 
     def tune_parameters(self):
-        # From our testing, having both stop words and binary counting resulted in a best score(R2)
-        # i = 0
-        # best_Score = -1000
+        i = -1
+        best_Score = -1000
 
-        # print(
-        #     "Find the best vectorization before tuning parameters")
+        print(
+            "Find the best vectorization before tuning parameters")
 
-        # for index, f in enumerate(self.X_train):
-        #     print("File: ", f)
+        for index, f in enumerate(self.X_train):
+            print("File: ", f)
 
-        #     param_grid = {"alpha": [0.20]}
+            param_grid = {"alpha": [0.20]}
 
-        #     grid = GridSearchCV(estimator=SGDRegressor(max_iter=100, tol=1e-2), param_grid=param_grid,
-        #                         scoring='r2', n_jobs=2, verbose=3)
+            grid = GridSearchCV(estimator=SGDRegressor(max_iter=100, tol=1e-2), param_grid=param_grid,
+                                scoring='r2', n_jobs=2, verbose=3)
 
-        #     X, y = np.load(f, mmap_mode='r'), np.load(
-        #         self.Y_train, mmap_mode='r')
-        #     grid_result = grid.fit(X, y)
+            X, y = np.load(f, mmap_mode='r'), np.load(
+                self.Y_train, mmap_mode='r')
+            grid_result = grid.fit(X, y)
 
-        #     print('Best Score: ', grid_result.best_score_)
-        #     if(grid_result.best_score_ > best_Score):
-        #         best_Score = grid_result.best_score_
-        #         i = index
+            print('Best Score: ', grid_result.best_score_)
+            if(grid_result.best_score_ > best_Score):
+                best_Score = grid_result.best_score_
+                i = index
 
-        #     grid = None
-        #     X = None
-        #     y = None
+            grid = None
+            X = None
+            y = None
 
-        i = 1
-        print("Best file: ", self.X_train[i])
+        print("Best vectorized file: ", self.X_train[i])
         print("Tuning parameters(alpha: 0.05, 0.10, 0.20, 0.5, 1)...")
 
         param_grid = [{"alpha": [0.05, 0.10, 0.20, 0.5, 1], "penalty": ["l1"], "learning_rate": ["constant", "invscaling"]},
@@ -237,9 +217,6 @@ class Model:
 
         grid = GridSearchCV(estimator=SGDRegressor(max_iter=100, tol=1e-2), param_grid=param_grid,
                             scoring="r2", n_jobs=2, verbose=3)
-
-        # X, y = np.load(self.X_train, mmap_mode='r'), np.load(
-        #     self.Y_train, mmap_mode='r')
 
         X, y = np.load(self.X_train[i], mmap_mode='r'), np.load(
             self.Y_train, mmap_mode='r')

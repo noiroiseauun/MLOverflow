@@ -13,7 +13,7 @@ class TimeModel(Model):
 
     def __init__(self, datapath=""):
         super().__init__('time', datapath)
-        # self.alpha_reg = 0.05
+
         # Note: there are less than 1 million questions with answers (that are after the question was created)
         self.num_samples = 900000
         self.train_count = 10000
@@ -80,6 +80,7 @@ class TimeModel(Model):
             lines, values = self.data(0, self.num_samples)
             self.vectorize_text(lines, values)
 
+        # If tune_parameter is false, we run with our experimented parameters
         if tune_parameter:
             self.tune_parameters()
         else:
