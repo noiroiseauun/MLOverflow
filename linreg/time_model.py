@@ -6,6 +6,7 @@ from progress.bar import Bar
 import util
 from datetime import datetime
 import codecs
+from lime.lime_tabular import LimeTabularExplainer
 
 
 class TimeModel(Model):
@@ -63,15 +64,14 @@ class TimeModel(Model):
                                 try:
                                     tokens = util.clean_tokenize(
                                         line[4] + line[5])
+                                    tokens = [tok.translate(str.maketrans(
+                                        '', '', string.punctuation)) for tok in tokens]
+                                    lines.append(' '.join(tokens))
+                                    times.append(delta)
+                                    i += 1
+                                    bar.next()
                                 except:
-                                    print("\nerror1")
-
-                                tokens = [tok.translate(str.maketrans(
-                                    '', '', string.punctuation)) for tok in tokens]
-                                lines.append(' '.join(tokens))
-                                times.append(delta)
-                                i += 1
-                                bar.next()
+                                    print("\nerror")
 
         return lines, times
 
@@ -86,11 +86,18 @@ class TimeModel(Model):
         else:
             self.index = 1
             self.param = {"alpha": 0.05,
-                          "learning_rate": "optimal", "penalty": "l2"}
+                          "learning_rate": "invscaling", "penalty": "l2"}
 
         reg = self.train()
         y_pred = self.test(reg)
+        print(max(y_pred))
         # Using log(y) so convert back to seconds with exp(y_pred)
-        y_pred = np.exp(y_pred) - 1
+        y_pred = np.expm1(y_pred)
         y_test = np.load(self.Y_test, mmap_mode='r')
         self.print_stats(y_pred, y_test)
+
+        X_train = np.load(self.X_train[self.index], mmap_mode='r')
+        X_test = np.load(self.X_test[self.index], mmap_mode='r')
+        explainer = LimeTabularExplainer(X_train, mode="regression")
+        exp = explainer.explain_instance(X_test[self.text_index], reg.predict)
+        exp.as_pyplot_figure()

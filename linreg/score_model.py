@@ -5,7 +5,7 @@ import numpy as np
 from progress.bar import Bar
 import util
 import codecs
-
+from lime.lime_tabular import LimeTabularExplainer
 """
 For 10 GB num_samples * feat_cnt should be less than 10^10
 batch_size*num_batches = num_training or num_test
@@ -31,24 +31,25 @@ class ScoreModel(Model):
         i, lines, scores = 0, [], []
         f = codecs.open(self.datapath + 'Questions-Final.csv', 'r', 'utf-8')
         corpus = csv.reader(f)
+        is_first = True
         with Bar("Loading data...", max=count) as bar:
             for line in corpus:
+                if is_first:
+                    is_first = False
+                    i += 1
                 if i == start + count + 1:
                     break
                 elif i > start:
                     try:
                         tokens = util.clean_tokenize(line[4] + line[5])
+                        tokens = [tok.translate(str.maketrans(
+                            '', '', string.punctuation)) for tok in tokens]
+                        scores.append(int(line[3]))
+                        lines.append(' '.join(tokens))
+                        bar.next()
+                        i += 1
                     except:
                         print("\nerror: skipping")
-                    tokens = [tok.translate(str.maketrans(
-                        '', '', string.punctuation)) for tok in tokens]
-                    lines.append(' '.join(tokens))
-                    try:
-                        scores.append(int(line[3]))
-                    except:
-                        scores.append(0)
-                bar.next()
-                i += 1
 
         return lines, scores
 
@@ -57,7 +58,7 @@ class ScoreModel(Model):
             lines, values = self.data(0, self.num_samples)
             self.vectorize_text(lines, values)
 
-        #If tune_parameter is false, we run with our experimented parameters
+        # If tune_parameter is false, we run with our experimented parameters
         if tune_parameter:
             self.tune_parameters()
         else:
@@ -71,3 +72,10 @@ class ScoreModel(Model):
         y_test = np.load(self.Y_test, mmap_mode='r')
         print(y_pred.shape)
         self.print_stats(y_pred, y_test)
+
+        # Show a Lime plot of the regression. The labelings will no be correct since we are using a regression model.
+        X_train = np.load(self.X_train[self.index], mmap_mode='r')
+        X_test = np.load(self.X_test[self.index], mmap_mode='r')
+        explainer = LimeTabularExplainer(X_train, mode="regression")
+        exp = explainer.explain_instance(X_test[self.text_index], reg.predict)
+        exp.as_pyplot_figure()

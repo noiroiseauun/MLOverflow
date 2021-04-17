@@ -57,6 +57,8 @@ class Model:
 
         self.log_y = False
 
+        self.text_index = 15
+
     def train(self):
         """
         Train the SGDRegression model using batches of X_train
@@ -148,9 +150,9 @@ class Model:
             print("[step] vectorizing text " + str(index) + "... DONE")
             print("[step] saving vectors " + str(index) + "...")
             f = open(self.X_train[index], 'wb')
-            np.save(f, X[0:total_train, :])
+            np.save(f, X[0:total_train])
             f = open(self.X_test[index], 'wb')
-            np.save(f, X[total_train:, :])
+            np.save(f, X[total_train:])
             X = None
 
         f = open(self.Y_train, 'wb')
